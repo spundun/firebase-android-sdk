@@ -25,7 +25,6 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.R
 import com.google.firebase.firestore.auth.CredentialsProvider
 import com.google.firebase.firestore.auth.User
-import com.google.firebase.firestore.benchmark.BuildConfig
 import com.google.firebase.firestore.model.DatabaseId
 import com.google.firebase.firestore.util.AsyncQueue
 import com.google.firebase.firestore.util.Listener
@@ -39,7 +38,7 @@ import java.util.concurrent.TimeoutException
 object IntegrationTestUtil {
     // Whether the integration tests should run against a local Firestore emulator instead of the
     // Production environment. Note that the Android Emulator treats "10.0.2.2" as its host machine.
-    private const val isRunningAgainstEmulator: Boolean = BuildConfig.USE_EMULATOR_FOR_TESTS
+    private const val isRunningAgainstEmulator: Boolean = false
     private const val EMULATOR_HOST: String = "10.0.2.2"
     private const val EMULATOR_PORT: Int = 8080
 

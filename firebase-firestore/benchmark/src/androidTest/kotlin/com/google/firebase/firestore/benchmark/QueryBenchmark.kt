@@ -26,10 +26,13 @@ class QueryBenchmark(
 ) {
     private companion object {
         @JvmStatic
+        val rootCollectionId = UUID.randomUUID()
+
+        @JvmStatic
         @Parameterized.Parameters(name = "{index}: with {0} total docs, {1} results and {2} props each")
         fun data(): Iterable<Array<Int>> {
-            val documentCounts = arrayOf(100, 200, 300, 400, 500)
-            val resultCounts = arrayOf(10, 25, 50, 100)
+            val documentCounts = arrayOf(500)
+            val resultCounts = arrayOf(10, 50, 100)
             val propertyCounts = arrayOf(10, 50, 100)
 
             val combinations = mutableListOf<Array<Int>>()
@@ -54,7 +57,8 @@ class QueryBenchmark(
     @Before
     fun before() {
         firestore = IntegrationTestUtil.testFirestore()
-        collection = firestore.collection(UUID.randomUUID().toString())
+        collection = firestore.collection(rootCollectionId.toString()).document("testcase")
+        .collection("$numberOfDocuments docs with $numberOfProperties props")
     }
 
     @After
@@ -83,10 +87,12 @@ class QueryBenchmark(
     }
 
     private fun setUpRemoteDocuments() {
-        firestore.enableNetwork()
-        val batch = initBatch()
-        waitFor(batch.commit())
-        waitFor(collection.get())
+        val snapshot = waitFor(collection.get())
+        if (snapshot.isEmpty) {
+            val batch = initBatch()
+            waitFor(batch.commit())
+            waitFor(collection.get())
+        }
     }
 
     @Test
@@ -94,8 +100,8 @@ class QueryBenchmark(
         setUpOverlays()
 
         val query = collection.whereLessThanOrEqualTo("count", numberOfResults)
-            benchmarkRule.measureRepeated {
-                waitFor(query.get())
+        benchmarkRule.measureRepeated {
+            waitFor(query.get())
         }
     }
 
