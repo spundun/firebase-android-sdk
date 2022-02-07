@@ -29,7 +29,7 @@ class QueryBenchmark(
         val rootCollectionId = UUID.randomUUID()
 
         @JvmStatic
-        @Parameterized.Parameters(name = "{index}: with {0} total docs, {1} results and {2} props each")
+        @Parameterized.Parameters(name = "{index} - {0} docs, {1} results, {2} props")
         fun data(): Iterable<Array<Int>> {
             val documentCounts = arrayOf(500)
             val resultCounts = arrayOf(10, 50, 100)
