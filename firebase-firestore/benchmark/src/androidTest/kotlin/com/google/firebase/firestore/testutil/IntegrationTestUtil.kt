@@ -30,6 +30,7 @@ import com.google.firebase.firestore.model.DatabaseId
 import com.google.firebase.firestore.util.AsyncQueue
 import com.google.firebase.firestore.util.Listener
 import java.lang.RuntimeException
+import java.util.*
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -38,14 +39,12 @@ import java.util.concurrent.TimeoutException
 object IntegrationTestUtil {
     // Whether the integration tests should run against a local Firestore emulator instead of the
     // Production environment. Note that the Android Emulator treats "10.0.2.2" as its host machine.
-    private const val isRunningAgainstEmulator: Boolean = BuildConfig.USE_EMULATOR_FOR_TESTS
+    private const val isRunningAgainstEmulator: Boolean = false
     private const val EMULATOR_HOST: String = "10.0.2.2"
     private const val EMULATOR_PORT: Int = 8080
 
     /** Default amount of time to wait for a given operation to complete, used by waitFor() helper.  */
     private const val OPERATION_WAIT_TIMEOUT_MS: Long = 30000
-
-    private val instances = mutableListOf<FirebaseFirestore>()
 
     private fun newTestSettings(): FirebaseFirestoreSettings {
         val settings: FirebaseFirestoreSettings.Builder = FirebaseFirestoreSettings.Builder()
@@ -61,7 +60,7 @@ object IntegrationTestUtil {
      * provided settings.
      */
     fun testFirestore(settings: FirebaseFirestoreSettings? = newTestSettings()): FirebaseFirestore {
-        val persistenceKey: String = "db" + instances.size
+        val persistenceKey: String = "db" + UUID.randomUUID()
         val context: Context = ApplicationProvider.getApplicationContext()
         val databaseId = DatabaseId.forDatabase(getProjectId(), DatabaseId.DEFAULT_DATABASE_ID)
         val firestore = AccessHelper.newFirebaseFirestore(
@@ -81,16 +80,6 @@ object IntegrationTestUtil {
     private fun getProjectId(): String {
         val context: Context = ApplicationProvider.getApplicationContext()
         return context.getString(R.string.project_id)
-    }
-
-    fun tearDown() {
-        try {
-            for (firestore: FirebaseFirestore in instances) {
-                waitFor<Void>(firestore.terminate())
-            }
-        } finally {
-            instances.clear()
-        }
     }
 
     fun <T> waitFor(task: Task<T>): T {
