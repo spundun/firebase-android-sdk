@@ -2,7 +2,6 @@ package com.google.firebase.firestore.benchmark
 
 import androidx.benchmark.junit4.BenchmarkRule
 import androidx.benchmark.junit4.measureRepeated
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.firebase.firestore.AccessHelper
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
@@ -11,31 +10,45 @@ import com.google.firebase.firestore.WriteBatch
 import com.google.firebase.firestore.testutil.IntegrationTestUtil
 import com.google.firebase.firestore.testutil.IntegrationTestUtil.waitFor
 import java.util.UUID
+import kotlin.collections.Iterable
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
 
-/**
- * Instrumented test, which will execute on an Android device.
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-@RunWith(AndroidJUnit4::class)
-class QueryBenchmark() {
+@RunWith(Parameterized::class)
+class QueryBenchmark(
+    var numberOfDocuments: Int,
+    var numberOfResults: Int,
+    var numberOfProperties: Int
+) {
+    private companion object {
+        @JvmStatic
+        @Parameterized.Parameters(name = "{index}: with {0} total docs, {1} results and {2} props each")
+        fun data(): Iterable<Array<Int>> {
+            val documentCounts = arrayOf(100, 200, 300, 400, 500)
+            val resultCounts = arrayOf(10, 25, 50, 100)
+            val propertyCounts = arrayOf(10, 50, 100)
 
-    // do one shared test setup that sets up colelctiosn for RDC and overlays that can be re-used
-    // make test paramterized
+            val combinations = mutableListOf<Array<Int>>()
 
-    val NUMBER_OF_RESULTS = 10
-    val NUMBER_OF_PROPERTIES = 100
-    val NUMBER_OF_DOCUMENTS = 250
+            for (documentCount in documentCounts) {
+                for (resultCount in resultCounts) {
+                    for (propertyCount in propertyCounts) {
+                        combinations.add(arrayOf(documentCount, resultCount, propertyCount))
+                    }
+                }
+            }
+            return combinations
+        }
+    }
 
     @get:Rule
     val benchmarkRule = BenchmarkRule()
 
-    lateinit var firestore: FirebaseFirestore 
+    lateinit var firestore: FirebaseFirestore
     lateinit var collection: CollectionReference
 
     @Before
@@ -46,17 +59,17 @@ class QueryBenchmark() {
 
     @After
     fun after() {
-       waitFor( firestore.terminate())
+        waitFor(firestore.terminate())
         waitFor(firestore.clearPersistence())
     }
 
-    private fun initBatch() : WriteBatch {
+    private fun initBatch(): WriteBatch {
         val data = mutableMapOf<String, Int>()
-        for (i in 1..NUMBER_OF_PROPERTIES) {
+        for (i in 1..numberOfProperties) {
             data.put(Integer.toString(i), i)
         }
         val batch = firestore.batch()
-        for (i in 1..NUMBER_OF_DOCUMENTS) {
+        for (i in 1..numberOfDocuments) {
             data.put("count", i)
             batch.set(collection.document(), data)
         }
@@ -64,13 +77,13 @@ class QueryBenchmark() {
     }
 
     private fun setUpOverlays() {
-        firestore.disableNetwork();
+        firestore.disableNetwork()
         val batch = initBatch()
-        batch.commit();
+        batch.commit()
     }
 
     private fun setUpRemoteDocuments() {
-        firestore.enableNetwork();
+        firestore.enableNetwork()
         val batch = initBatch()
         waitFor(batch.commit())
         waitFor(collection.get())
@@ -78,20 +91,20 @@ class QueryBenchmark() {
 
     @Test
     fun overlaysWithoutIndex() {
-        setUpOverlays();
-        val query = collection.whereLessThanOrEqualTo("count", NUMBER_OF_RESULTS)
-            benchmarkRule.measureRepeated {
+        setUpOverlays()
 
+        val query = collection.whereLessThanOrEqualTo("count", numberOfResults)
+            benchmarkRule.measureRepeated {
                 waitFor(query.get())
         }
     }
 
     @Test
     fun overlaysWithIndex() {
-        setUpOverlays();
+        setUpOverlays()
         setUpIndex()
 
-        val query = collection.whereLessThanOrEqualTo("count", NUMBER_OF_RESULTS)
+        val query = collection.whereLessThanOrEqualTo("count", numberOfResults)
         benchmarkRule.measureRepeated {
             waitFor(query.get())
         }
@@ -107,9 +120,6 @@ class QueryBenchmark() {
                 "      ]\n" +
                 "    }\n" +
                 "  ]}\n")
-        // TODO(mrschmidt): Figure out why this has a document id
-        // 2022-02-04 17:36:45.061 17648-17696/? I/Firestore: (24.0.1) [SQLiteIndexManager]: Using index 'FieldIndex{indexId=0, collectionGroup=d34a678b-67ec-4737-883c-21c354c5064b, segments=[Segment{fieldPath=count, kind=ASCENDING}], indexState=IndexState{sequenceNumber=2, offset=IndexOffset{readTime=SnapshotVersion(seconds=0, nanos=0), documentKey=d34a678b-67ec-4737-883c-21c354c5064b/zxqJIhFLbG2eBdVwslS1, largestBatchId=50}}}' to execute 'Query(d34a678b-67ec-4737-883c-21c354c5064b where count < 10 order by count, __name__)' (Arrays: null, Lower bound: Bound(inclusive=true, position=NaN), Upper bound: Bound(inclusive=false, position=10))
-
         waitFor(AccessHelper.forceBackfill(firestore))
     }
 
@@ -117,7 +127,7 @@ class QueryBenchmark() {
     fun remoteDocumentsWithoutIndex() {
         setUpRemoteDocuments()
 
-        val query = collection.whereLessThanOrEqualTo("count", NUMBER_OF_RESULTS)
+        val query = collection.whereLessThanOrEqualTo("count", numberOfResults)
         benchmarkRule.measureRepeated {
             waitFor(query.get(Source.CACHE))
         }
@@ -128,7 +138,7 @@ class QueryBenchmark() {
         setUpRemoteDocuments()
         setUpIndex()
 
-        val query = collection.whereLessThanOrEqualTo("count", NUMBER_OF_RESULTS)
+        val query = collection.whereLessThanOrEqualTo("count", numberOfResults)
         benchmarkRule.measureRepeated {
             waitFor(query.get(Source.CACHE))
         }
@@ -138,7 +148,7 @@ class QueryBenchmark() {
     fun remoteDocumentsWithIndexFree() {
         setUpRemoteDocuments()
 
-        val query = collection.whereLessThanOrEqualTo("count", NUMBER_OF_RESULTS)
+        val query = collection.whereLessThanOrEqualTo("count", numberOfResults)
         waitFor(query.get())
         benchmarkRule.measureRepeated {
             waitFor(query.get(Source.CACHE))
